@@ -1,0 +1,164 @@
+generator client {
+    provider        = "prisma-client-js"
+    previewFeatures = ["interactiveTransactions"]
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Session {
+    id            String   @id @default(uuid())
+    userId        String
+    createdAt     DateTime @default(now())
+    lastUpdatedAt DateTime @updatedAt
+    userEmail     String
+
+    user User @relation(fields: [userId], references: [id])
+
+    @@map("sessions")
+}
+
+model Address {
+    id      String  @id @default(uuid())
+    fleetId String
+    street  String
+    city    String
+    state   String?
+    country String
+    zipCode String
+
+    @@index([fleetId])
+    @@map("addresses")
+}
+
+model AuditLog {
+    id        String   @id
+    userEmail String
+    action    String
+    data      Json
+    createdAt DateTime @default(now())
+
+    @@map("audit_logs")
+}
+
+model User {
+    id            String     @id @default(cuid())
+    email         String     @unique
+    firstName     String?
+    lastName      String?
+    passwordHash  String
+    systemRole    SystemRole
+    createdAt     DateTime   @default(now())
+    lastUpdatedAt DateTime   @default(now())
+
+    Session        Session[]
+    passwordResets PasswordReset[]
+    fleet          UserFleet[]
+
+    @@map("users")
+}
+
+model UserFleet {
+    userId        String
+    fleetId       String
+    createdAt     DateTime @default(now())
+    lastUpdatedAt DateTime @updatedAt
+
+    user  User  @relation(fields: [userId], references: [id])
+    fleet Fleet @relation(fields: [fleetId], references: [id])
+
+    @@id([userId, fleetId])
+    @@map("user_fleets")
+}
+
+model Fleet {
+    id                String   @id
+    name              String
+    contactName       String
+    createdAt         DateTime @default(now())
+    lastUpdatedAt     DateTime @default(now())
+    billingAddressId  String?
+    shippingAddressId String?
+
+    invoices  Invoice[]
+    vehicles  Vehicle[]
+    userFleet UserFleet[]
+
+    @@unique([id, billingAddressId])
+    @@unique([id, shippingAddressId])
+    @@map("fleets")
+}
+
+model Invoice {
+    id            String        @id @default(cuid())
+    fleetId       String
+    number        String
+    amount        Int
+    balance       Int
+    dateDue       DateTime
+    createdAt     DateTime      @default(now())
+    lastUpdatedAt DateTime      @default(now())
+    status        InvoiceStatus
+
+    fleet Fleet @relation(fields: [fleetId], references: [id])
+
+    @@map("invoices")
+}
+
+model Payment {
+    id            String         @id
+    invoiceId     Int
+    amount        Int
+    createdAt     DateTime       @default(now())
+    lastUpdatedAt DateTime       @default(now())
+    channel       PaymentChannel
+
+    @@map("payments")
+}
+
+model Vehicle {
+    vin           String   @id
+    fleetId       String
+    vrn           String
+    year          Int
+    make          String
+    model         String
+    color         String
+    createdAt     DateTime @default(now())
+    lastUpdatedAt DateTime @default(now())
+
+    fleet Fleet @relation(fields: [fleetId], references: [id])
+
+    @@map("vehicles")
+}
+
+model PasswordReset {
+    id        String   @id @default(cuid())
+    token     String
+    userId    String
+    createdAt DateTime @default(now())
+    expiresAt DateTime
+
+    user User @relation(fields: [userId], references: [id])
+
+    @@unique([token, userId])
+    @@map("password_resets")
+}
+
+enum SystemRole {
+    ADMIN
+    CUSTOMER
+}
+
+enum InvoiceStatus {
+    PAID
+    UNPAID
+    OVERDUE
+}
+
+enum PaymentChannel {
+    CHEQUE
+    CHARGELY
+}
